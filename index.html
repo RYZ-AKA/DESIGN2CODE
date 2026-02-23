@@ -207,131 +207,149 @@
 
         <div class="flex flex-1 overflow-hidden">
             <!-- Unified Sidebar (Elements & Inspect) -->
-            <aside class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col py-0 z-40 overflow-hidden shrink-0 select-none">
-                <!-- Tabs -->
-                <div class="flex border-b border-slate-700 bg-slate-800">
-                    <button id="tab-btn-elements" onclick="Editor.switchSidebarTab('elements')" class="flex-1 py-3 text-sm font-semibold text-blue-400 border-b-2 border-blue-500 transition-colors">Elements</button>
-                    <button id="tab-btn-inspect" onclick="Editor.switchSidebarTab('inspect')" class="flex-1 py-3 text-sm font-semibold text-slate-400 hover:text-white transition-colors">Inspect</button>
-                </div>
-
-                <!-- TAB: ELEMENTS -->
-                <div id="panel-elements" class="flex-1 overflow-y-auto py-2">
+            <aside class="flex h-full bg-slate-800 border-r border-slate-700 z-40 overflow-hidden shrink-0 select-none">
+                
+                <!-- LEFT RAIL: Square Icon Buttons -->
+                <div class="w-20 bg-slate-900 flex flex-col items-center py-4 gap-2 border-r border-slate-700 shrink-0">
+                    <!-- Elements Button -->
+                    <button id="tab-btn-elements" onclick="Editor.switchSidebarTab('elements')" class="w-14 h-14 flex flex-col items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition-all duration-200 border border-transparent hover:border-slate-600" title="Elements">
+                        <i data-lucide="layout-grid" class="w-6 h-6"></i>
+                        <span class="text-[10px] mt-1 font-semibold">Elements</span>
+                    </button>
                     
-                    <!-- Typography Group -->
-                    <details class="group mb-2">
-                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
-                            Typography
-                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
-                        </summary>
-                        <div class="tool-grid">
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h1" title="Heading 1">
-                                <span class="text-xl font-bold">H1</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h2" title="Heading 2">
-                                <span class="text-lg font-bold">H2</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h3" title="Heading 3">
-                                <span class="text-base font-bold">H3</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="p" title="Paragraph">
-                                <i data-lucide="pilcrow" class="w-5 h-5"></i>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h4" title="Heading 4">
-                                <span class="text-sm font-bold">H4</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h5" title="Heading 5">
-                                <span class="text-xs font-bold">H5</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h6" title="Heading 6">
-                                <span class="text-[10px] font-bold">H6</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="strong" title="Bold Text">
-                                <span class="text-sm font-bold">B</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50 col-span-2" draggable="true" data-type="text" title="Plain Text Block">
-                                <i data-lucide="type" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Text Block</span>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- Shapes Group -->
-                    <details class="group mb-2">
-                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
-                            Shapes
-                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
-                        </summary>
-                        <div class="tool-grid">
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="box" title="Box / Container">
-                                <i data-lucide="square" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Box</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="circle" title="Circle">
-                                <i data-lucide="circle" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Circle</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="triangle" title="Triangle">
-                                <i data-lucide="triangle" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Triangle</span>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- Visual Group -->
-                    <details class="group mb-2">
-                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
-                            Visual
-                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
-                        </summary>
-                        <div class="tool-grid">
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="image" title="Image">
-                                <i data-lucide="image" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Image</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="video" title="Video Embed">
-                                <i data-lucide="video" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Video</span>
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- Forms Group -->
-                    <details class="group mb-2">
-                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
-                            Forms
-                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
-                        </summary>
-                        <div class="tool-grid">
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="button" title="Button">
-                                <i data-lucide="mouse-pointer" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Button</span>
-                            </div>
-                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="input" title="Input Field">
-                                <i data-lucide="align-justify" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Input</span>
-                            </div>
-                        </div>
-                    </details>
+                    <!-- Inspect Button -->
+                    <button id="tab-btn-inspect" onclick="Editor.switchSidebarTab('inspect')" class="w-14 h-14 flex flex-col items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition-all duration-200 border border-transparent hover:border-slate-600" title="Inspect">
+                        <i data-lucide="scan-search" class="w-6 h-6"></i>
+                        <span class="text-[10px] mt-1 font-semibold">Inspect</span>
+                    </button>
                 </div>
 
-                <!-- TAB: INSPECT -->
-                <div id="panel-inspect" class="hidden flex-1 flex flex-col overflow-hidden bg-slate-800">
-                    <!-- Inspector Tools -->
-                    <div class="p-4 border-b border-slate-700 bg-slate-800/50">
-                        <button id="btn-inspector-mode" onclick="Editor.toggleInspector()" class="flex items-center justify-center w-full py-2 bg-slate-700 hover:bg-blue-600 text-white rounded-lg transition-all mb-3 group border border-slate-600">
-                            <i data-lucide="mouse-pointer-2" class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform"></i> Select to Find
-                        </button>
-                        <div class="space-y-1">
-                            <label class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Selected ID</label>
-                            <div class="flex items-center bg-slate-900 rounded border border-slate-600 px-2 py-1.5">
-                                <code id="inspector-selected-id" class="text-xs text-blue-300 truncate select-all flex-1 font-mono">None</code>
-                                <button onclick="Editor.copyId()" class="ml-2 text-slate-500 hover:text-white" title="Copy ID"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                <!-- RIGHT CONTENT: Lists & Panels -->
+                <div class="flex-1 flex flex-col overflow-hidden w-48">
+                    
+                    <!-- Header Title (Dynamic) -->
+                    <div class="h-16 flex items-center px-4 border-b border-slate-700 bg-slate-800/50 shrink-0">
+                        <h2 id="sidebar-title" class="font-semibold text-sm text-slate-300 uppercase tracking-wider">Elements</h2>
+                    </div>
+
+                    <!-- TAB: ELEMENTS -->
+                    <div id="panel-elements" class="flex-1 overflow-y-auto py-2">
+                        <!-- Typography Group -->
+                        <details class="group mb-2" open>
+                            <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                                Typography
+                                <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="tool-grid">
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h1" title="Heading 1">
+                                    <span class="text-xl font-bold">H1</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h2" title="Heading 2">
+                                    <span class="text-lg font-bold">H2</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h3" title="Heading 3">
+                                    <span class="text-base font-bold">H3</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="p" title="Paragraph">
+                                    <i data-lucide="pilcrow" class="w-5 h-5"></i>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h4" title="Heading 4">
+                                    <span class="text-sm font-bold">H4</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h5" title="Heading 5">
+                                    <span class="text-xs font-bold">H5</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h6" title="Heading 6">
+                                    <span class="text-[10px] font-bold">H6</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="strong" title="Bold Text">
+                                    <span class="text-sm font-bold">B</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50 col-span-2" draggable="true" data-type="text" title="Plain Text Block">
+                                    <i data-lucide="type" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Text Block</span>
+                                </div>
                             </div>
+                        </details>
+
+                        <!-- Shapes Group -->
+                        <details class="group mb-2">
+                            <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                                Shapes
+                                <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="tool-grid">
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="box" title="Box / Container">
+                                    <i data-lucide="square" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Box</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="circle" title="Circle">
+                                    <i data-lucide="circle" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Circle</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="triangle" title="Triangle">
+                                    <i data-lucide="triangle" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Triangle</span>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Visual Group -->
+                        <details class="group mb-2">
+                            <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                                Visual
+                                <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="tool-grid">
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="image" title="Image">
+                                    <i data-lucide="image" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Image</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="video" title="Video Embed">
+                                    <i data-lucide="video" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Video</span>
+                                </div>
+                            </div>
+                        </details>
+
+                        <!-- Forms Group -->
+                        <details class="group mb-2">
+                            <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                                Forms
+                                <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="tool-grid">
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="button" title="Button">
+                                    <i data-lucide="mouse-pointer" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Button</span>
+                                </div>
+                                <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="input" title="Input Field">
+                                    <i data-lucide="align-justify" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Input</span>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- TAB: INSPECT -->
+                    <div id="panel-inspect" class="hidden flex-1 flex flex-col overflow-hidden bg-slate-800">
+                        <!-- Inspector Tools -->
+                        <div class="p-4 border-b border-slate-700 bg-slate-800/50">
+                            <button id="btn-inspector-mode" onclick="Editor.toggleInspector()" class="flex items-center justify-center w-full py-2 bg-slate-700 hover:bg-blue-600 text-white rounded-lg transition-all mb-3 group border border-slate-600">
+                                <i data-lucide="mouse-pointer-2" class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform"></i> Select to Find
+                            </button>
+                            <div class="space-y-1">
+                                <label class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Selected ID</label>
+                                <div class="flex items-center bg-slate-900 rounded border border-slate-600 px-2 py-1.5">
+                                    <code id="inspector-selected-id" class="text-xs text-blue-300 truncate select-all flex-1 font-mono">None</code>
+                                    <button onclick="Editor.copyId()" class="ml-2 text-slate-500 hover:text-white" title="Copy ID"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Layers Header -->
+                        <div class="p-3 bg-slate-800 font-semibold text-sm text-slate-300 flex justify-between items-center border-b border-slate-700 shadow-sm mt-2">
+                            Layers
+                            <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-400" id="layer-count">0</span>
+                        </div>
+                        <div id="layers-list" class="flex-1 overflow-y-auto">
+                            <!-- Layer Items Injected Here -->
                         </div>
                     </div>
 
-                    <!-- Layers Header -->
-                    <div class="p-3 bg-slate-800 font-semibold text-sm text-slate-300 flex justify-between items-center border-b border-slate-700 shadow-sm mt-2">
-                        Layers
-                        <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-400" id="layer-count">0</span>
-                    </div>
-                    <div id="layers-list" class="flex-1 overflow-y-auto">
-                        <!-- Layer Items Injected Here -->
-                    </div>
                 </div>
-
             </aside>
 
             <!-- Canvas Area -->
@@ -465,7 +483,7 @@
             </div>
         </div>
 
-        <!-- View Code Modal -->
+                <!-- View Code Modal -->
         <div id="code-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div class="bg-slate-800 rounded-xl w-full max-w-4xl h-3/4 flex flex-col border border-slate-700 shadow-2xl animate-fade-in">
                 <div class="flex justify-between items-center p-4 border-b border-slate-700">
@@ -484,14 +502,34 @@
                 </div>
             </div>
         </div>
+
+        <!-- NEW: Iframe Preview Modal -->
+        <div id="iframe-preview-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div class="bg-slate-800 rounded-xl w-full max-w-6xl h-5/6 flex flex-col border border-slate-700 shadow-2xl animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b border-slate-700">
+                    <h3 class="text-xl font-bold text-white">Live Preview</h3>
+                    <div class="flex gap-2">
+                         <button onclick="Editor.refreshPreviewIframe()" class="flex items-center px-3 py-1.5 bg-slate-600 hover:bg-slate-500 rounded text-white text-sm transition-colors">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Refresh
+                        </button>
+                        <button onclick="document.getElementById('iframe-preview-modal').classList.add('hidden')" class="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 p-4 bg-slate-900 overflow-auto">
+                    <iframe id="preview-iframe" class="w-full h-full border-0 bg-white rounded shadow-lg" sandbox="allow-scripts allow-same-origin"></iframe>
+                </div>
+            </div>
+        </div>
     <script>
         // Constants & Config
         const STORAGE_KEY = 'design2code_projects';
         
         // Canvas Config - Desktop Preset
-        const PAGE_WIDTH = 80;
-        const PAGE_HEIGHT = 70;
-        const GRID_SIZE = 20;
+        const PAGE_WIDTH = 99.8;
+        const PAGE_HEIGHT = 100;
+        const GRID_SIZE = 5;
 
         const DEFAULT_STYLES = {
             box: { backgroundColor: '#34495e', borderRadius: 0, opacity: 1, zIndex: 1, rotation: 0, borderColor: 'transparent', borderWidth: 0, locked: false },
@@ -641,27 +679,35 @@
                 if(window.lucide) lucide.createIcons();
             },
 
-            switchSidebarTab: (tab) => {
+                switchSidebarTab: (tab) => {
                 const elementsPanel = document.getElementById('panel-elements');
                 const inspectPanel = document.getElementById('panel-inspect');
                 const btnEl = document.getElementById('tab-btn-elements');
                 const btnIn = document.getElementById('tab-btn-inspect');
+                const title = document.getElementById('sidebar-title');
 
                 if (tab === 'elements') {
                     elementsPanel.classList.remove('hidden');
                     inspectPanel.classList.add('hidden');
-                    btnEl.classList.add('border-blue-500', 'text-blue-400');
-                    btnEl.classList.remove('text-slate-400');
-                    btnIn.classList.remove('border-blue-500', 'text-blue-400');
-                    btnIn.classList.add('text-slate-400');
+                    
+                    // Active state for Elements button
+                    btnEl.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
+                    btnEl.classList.remove('text-slate-400', 'hover:bg-slate-700', 'hover:border-slate-600');
+                    btnIn.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
+                    btnIn.classList.add('text-slate-400', 'hover:bg-slate-700', 'hover:border-slate-600');
+                    
+                    if(title) title.textContent = "Elements";
                     if(Editor.isInspecting) Editor.toggleInspector();
                 } else {
                     elementsPanel.classList.add('hidden');
                     inspectPanel.classList.remove('hidden');
-                    btnIn.classList.add('border-blue-500', 'text-blue-400');
-                    btnIn.classList.remove('text-slate-400');
-                    btnEl.classList.remove('border-blue-500', 'text-blue-400');
-                    btnEl.classList.add('text-slate-400');
+                    inspectPanel.classList.add('flex');
+                    btnIn.classList.add('bg-blue-600', 'text-white', 'border-blue-500');
+                    btnIn.classList.remove('text-slate-400', 'hover:bg-slate-700', 'hover:border-slate-600');
+                    btnEl.classList.remove('bg-blue-600', 'text-white', 'border-blue-500');
+                    btnEl.classList.add('text-slate-400', 'hover:bg-slate-700', 'hover:border-slate-600');
+
+                    if(title) title.textContent = "Inspect";
                     Editor.renderLayers();
                 }
             },
@@ -1589,7 +1635,7 @@
             
             // --- Export / Preview Logic ---
 
-            getProjectHTML: () => {
+                        getProjectHTML: () => {
                 const styles = `
                     @import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,100..700;1,100..700&display=swap');
                     @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&display=swap');
@@ -1597,12 +1643,15 @@
                     body { 
                         margin: 0; 
                         padding: 0;
+                        /* Removed overflow-x: hidden to allow full preview */
                     }
                     .canvas-container { 
+                        /* Position relative allows negative elements to position correctly */
+                        position: relative;
                         width: 100vw; 
-                        height:auto; 
+                        height: auto; 
                         background: white;
-                        overflow: hidden; 
+                        /* REMOVED: overflow: hidden; */ 
                         margin: 0 auto; 
                     }
                     .generated-element { 
@@ -1678,7 +1727,17 @@
 </body>
 </html>`;
             },
-            
+            openPreviewModal: () => {
+                document.getElementById('iframe-preview-modal').classList.remove('hidden');
+                Editor.refreshPreviewIframe();
+                if(window.lucide) lucide.createIcons();
+            },
+
+            refreshPreviewIframe: () => {
+                const html = Editor.getProjectHTML();
+                const iframe = document.getElementById('preview-iframe');
+                iframe.srcdoc = html;
+            },
             downloadHTML: () => {
                 const html = Editor.getProjectHTML();
                 const blob = new Blob([html], {type: 'text/html'});
