@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design2Code-Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&display=swap');
+
+        body {
+            font-family: 'Josefin Sans', sans-serif;
+            background-color: #0f172a;
+            color: #ecf0f1;
+            overflow: hidden;
+        }
+
+        .font-logo {
+            font-family: 'Dancing Script', cursive;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b82f6;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #2563eb;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        /* Canvas Grid Pattern - Moved to Page */
+        .bg-grid-pattern {
+            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Utility for glass morphism */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Selection Overlay & Resize Handles */
+        #selection-overlay {
+            position: absolute;
+            border: 2px solid #3b82f6;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #3b82f6;
+            border: 1px solid white;
+            border-radius: 50%;
+            pointer-events: auto;
+            z-index: 1001;
+        }
+        
+        /* Corners */
+        .handle-nw { top: -6px; left: -6px; cursor: nw-resize; }
+        .handle-ne { top: -6px; right: -6px; cursor: ne-resize; }
+        .handle-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+        .handle-se { bottom: -6px; right: -6px; cursor: se-resize; }
+        
+        /* Edges */
+        .handle-n { top: -6px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+        .handle-s { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+        .handle-e { top: 50%; right: -6px; transform: translateY(-50%); cursor: e-resize; }
+        .handle-w { top: 50%; left: -6px; transform: translateY(-50%); cursor: w-resize; }
+
+        /* Toolbar Styles */
+        details > summary {
+            list-style: none;
+            outline: none;
+            cursor: pointer;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+        
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            padding: 0.5rem;
+        }
+
+        /* Page Frame on Canvas */
+        .page-frame {
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            margin-bottom: 2px;
+            position: relative;
+        }
+        .page-frame::after {
+            content: "Page " attr(data-page);
+            position: absolute;
+            top: 10px;
+            left: -80px;
+            color: #64748b;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .page-separator {
+            border-bottom: 2px dashed #94a3b8;
+            position: absolute;
+            left: 0;
+            width: 100%;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        /* Layers Panel Items */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .layer-item:hover {
+            background-color: rgba(51, 65, 85, 0.5);
+        }
+        .layer-item.active {
+            background-color: #2563eb;
+            color: white;
+        }
+
+        /* Inspector Mode */
+        .inspector-active {
+            cursor: crosshair !important;
+        }
+        .inspector-hover {
+            outline: 2px dashed #22d3ee !important; /* Cyan outline */
+            outline-offset: 2px;
+        }
+        
+        /* Locked Element Styling in Layer Panel */
+        .layer-item.locked .layer-name {
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white select-none">
+    <!-- ================= VIEW: EDITOR ================= -->
+    <div id="view-editor" class="flex flex-col bg-[#1a252f] h-screen w-screen overflow-hidden">
+        <!-- Top Bar -->
+        <header class="h-16 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-4 z-50 relative shrink-0">
+            <div class="flex items-center gap-4">
+                <h1 id="editor-project-title" class="text-lg font-semibold text-white">Untitled Project</h1>
+                
+                <!-- History Controls -->
+                <div class="flex items-center gap-1 ml-4">
+                    <button onclick="Editor.undo()" id="btn-undo" class="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Undo (Ctrl+Z)">
+                        <i data-lucide="undo" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="Editor.redo()" id="btn-redo" class="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Redo (Ctrl+Y)">
+                        <i data-lucide="redo" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Grid Toggle -->
+                <button onclick="Editor.toggleGrid()" id="btn-grid" class="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors ml-2" title="Toggle Snap to Grid">
+                    <i data-lucide="grid" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="Editor.viewCode()" class="flex items-center px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors" title="View/Copy HTML Code">
+                    <i data-lucide="code" class="w-4 h-4 mr-2"></i> Code
+                </button>
+                <button onclick="Editor.previewHTML();" class="flex items-center px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors" title="Open Preview in New Tab">
+                    <i data-lucide="eye" class="w-4 h-4 mr-2"></i> Preview
+                </button>
+                <div class="w-px h-6 bg-slate-600 mx-2"></div>
+                <button onclick="Editor.saveProject()" class="flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors" title="Save Project">
+                    <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save
+                </button>
+                <button onclick="Editor.downloadHTML()" class="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm transition-colors shadow-lg shadow-blue-900/20" title="Export as HTML file">
+                    <i data-lucide="download" class="w-4 h-4 mr-2"></i> Export HTML
+                </button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <!-- Unified Sidebar (Elements & Inspect) -->
+            <aside class="w-64 bg-slate-800 border-r border-slate-700 flex flex-col py-0 z-40 overflow-hidden shrink-0 select-none">
+                <!-- Tabs -->
+                <div class="flex border-b border-slate-700 bg-slate-800">
+                    <button id="tab-btn-elements" onclick="Editor.switchSidebarTab('elements')" class="flex-1 py-3 text-sm font-semibold text-blue-400 border-b-2 border-blue-500 transition-colors">Elements</button>
+                    <button id="tab-btn-inspect" onclick="Editor.switchSidebarTab('inspect')" class="flex-1 py-3 text-sm font-semibold text-slate-400 hover:text-white transition-colors">Inspect</button>
+                </div>
+
+                <!-- TAB: ELEMENTS -->
+                <div id="panel-elements" class="flex-1 overflow-y-auto py-2">
+                    
+                    <!-- Typography Group -->
+                    <details class="group mb-2">
+                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                            Typography
+                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                        </summary>
+                        <div class="tool-grid">
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h1" title="Heading 1">
+                                <span class="text-xl font-bold">H1</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h2" title="Heading 2">
+                                <span class="text-lg font-bold">H2</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h3" title="Heading 3">
+                                <span class="text-base font-bold">H3</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="p" title="Paragraph">
+                                <i data-lucide="pilcrow" class="w-5 h-5"></i>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h4" title="Heading 4">
+                                <span class="text-sm font-bold">H4</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h5" title="Heading 5">
+                                <span class="text-xs font-bold">H5</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="h6" title="Heading 6">
+                                <span class="text-[10px] font-bold">H6</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="strong" title="Bold Text">
+                                <span class="text-sm font-bold">B</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50 col-span-2" draggable="true" data-type="text" title="Plain Text Block">
+                                <i data-lucide="type" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Text Block</span>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Shapes Group -->
+                    <details class="group mb-2">
+                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                            Shapes
+                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                        </summary>
+                        <div class="tool-grid">
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="box" title="Box / Container">
+                                <i data-lucide="square" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Box</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="circle" title="Circle">
+                                <i data-lucide="circle" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Circle</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="triangle" title="Triangle">
+                                <i data-lucide="triangle" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Triangle</span>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Visual Group -->
+                    <details class="group mb-2">
+                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                            Visual
+                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                        </summary>
+                        <div class="tool-grid">
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="image" title="Image">
+                                <i data-lucide="image" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Image</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="video" title="Video Embed">
+                                <i data-lucide="video" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Video</span>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Forms Group -->
+                    <details class="group mb-2">
+                        <summary class="flex items-center justify-between px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs font-semibold uppercase tracking-wider">
+                            Forms
+                            <i data-lucide="chevron-down" class="w-3 h-3 transition-transform group-open:rotate-180"></i>
+                        </summary>
+                        <div class="tool-grid">
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="button" title="Button">
+                                <i data-lucide="mouse-pointer" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Button</span>
+                            </div>
+                            <div class="draggable-tool cursor-grab active:cursor-grabbing flex flex-col items-center justify-center p-2 rounded-lg hover:bg-slate-700 hover:text-blue-400 transition-colors border border-slate-700 hover:border-blue-500/50" draggable="true" data-type="input" title="Input Field">
+                                <i data-lucide="align-justify" class="w-5 h-5 mb-1"></i> <span class="text-[10px]">Input</span>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- TAB: INSPECT -->
+                <div id="panel-inspect" class="hidden flex-1 flex flex-col overflow-hidden bg-slate-800">
+                    <!-- Inspector Tools -->
+                    <div class="p-4 border-b border-slate-700 bg-slate-800/50">
+                        <button id="btn-inspector-mode" onclick="Editor.toggleInspector()" class="flex items-center justify-center w-full py-2 bg-slate-700 hover:bg-blue-600 text-white rounded-lg transition-all mb-3 group border border-slate-600">
+                            <i data-lucide="mouse-pointer-2" class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform"></i> Select to Find
+                        </button>
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Selected ID</label>
+                            <div class="flex items-center bg-slate-900 rounded border border-slate-600 px-2 py-1.5">
+                                <code id="inspector-selected-id" class="text-xs text-blue-300 truncate select-all flex-1 font-mono">None</code>
+                                <button onclick="Editor.copyId()" class="ml-2 text-slate-500 hover:text-white" title="Copy ID"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Layers Header -->
+                    <div class="p-3 bg-slate-800 font-semibold text-sm text-slate-300 flex justify-between items-center border-b border-slate-700 shadow-sm mt-2">
+                        Layers
+                        <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-400" id="layer-count">0</span>
+                    </div>
+                    <div id="layers-list" class="flex-1 overflow-y-auto">
+                        <!-- Layer Items Injected Here -->
+                    </div>
+                </div>
+
+            </aside>
+
+            <!-- Canvas Area -->
+            <main id="workspace" class="flex-1 relative overflow-hidden bg-[#0f172a] cursor-default">
+                <!-- Wrapper for Transforms (Zoom/Pan) -->
+                <div id="canvas-content" class="w-auto h-auto relative origin-top-left">
+                    
+                    <!-- Background Pages Layer (White Canvas) -->
+                    <div id="page-backgrounds" class="absolute top-0 left-0 w-full h-full origin-top-left z-0">
+                        <!-- Pages generated by JS -->
+                    </div>
+
+                    <!-- Elements Container -->
+                    <div id="canvas-elements" class="absolute top-0 left-0 w-full h-full origin-top-left z-10">
+                        <!-- Dynamic Elements -->
+                    </div>
+                    
+                    <!-- Selection Overlay -->
+                    <div id="selection-overlay" class="z-20">
+                        <div class="resize-handle handle-nw" data-handle="nw" title="Resize"></div>
+                        <div class="resize-handle handle-n" data-handle="n" title="Resize Height"></div>
+                        <div class="resize-handle handle-ne" data-handle="ne" title="Resize"></div>
+                        <div class="resize-handle handle-e" data-handle="e" title="Resize Width"></div>
+                        <div class="resize-handle handle-se" data-handle="se" title="Resize"></div>
+                        <div class="resize-handle handle-s" data-handle="s" title="Resize Height"></div>
+                        <div class="resize-handle handle-sw" data-handle="sw" title="Resize"></div>
+                        <div class="resize-handle handle-w" data-handle="w" title="Resize Width"></div>
+                        <!-- Locked indicator on selection -->
+                        <div id="locked-indicator" class="hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full flex items-center shadow-lg"><i data-lucide="lock" class="w-3 h-3 mr-1"></i> Locked</div>
+                    </div>
+
+                    <!-- Page Management Buttons (Inside Canvas) -->
+                    <div id="add-page-container" class="absolute left-0 w-full flex justify-center gap-2 pb-10 z-30" style="display:none;">
+                         <button onclick="Editor.addPage()" class="flex items-center px-4 py-2 bg-slate-700/50 hover:bg-blue-600 text-white rounded-full backdrop-blur-sm border border-slate-500 transition-all shadow-lg group">
+                            <i data-lucide="plus-circle" class="w-5 h-5 mr-2 text-slate-300 group-hover:text-white"></i> Add Page
+                        </button>
+                        <button onclick="Editor.removePage()" class="flex items-center px-4 py-2 bg-slate-700/50 hover:bg-red-600 text-white rounded-full backdrop-blur-sm border border-slate-500 transition-all shadow-lg group">
+                            <i data-lucide="trash" class="w-5 h-5 mr-2 text-slate-300 group-hover:text-white"></i> Remove Page
+                        </button>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+
+        <!-- Context Menu (Floating) -->
+        <div id="context-menu" class="hidden fixed top-20 left-1/2 -translate-x-1/2 glass-panel text-white p-2 rounded-xl flex items-center gap-4 z-50 shadow-2xl">
+             <!-- Position -->
+            <div class="flex items-center gap-2 border-r border-slate-600 pr-4">
+                <div class="flex flex-col"><label class="text-[9px] text-slate-400">X</label><input id="prop-x" type="number" class="w-10 bg-slate-900 border border-slate-600 rounded text-xs px-1" title="X Position"></div>
+                <div class="flex flex-col"><label class="text-[9px] text-slate-400">Y</label><input id="prop-y" type="number" class="w-10 bg-slate-900 border border-slate-600 rounded text-xs px-1" title="Y Position"></div>
+            </div>
+            
+            <!-- Alignment & Format Controls (Dynamic) -->
+            <div id="group-text-format" class="flex items-center gap-1 border-r border-slate-600 pr-4" style="display:none;">
+                <button id="action-bold" class="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Bold"><i data-lucide="bold" class="w-4 h-4"></i></button>
+                <button id="action-italic" class="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Italic"><i data-lucide="italic" class="w-4 h-4"></i></button>
+                <button id="action-underline" class="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Underline"><i data-lucide="underline" class="w-4 h-4"></i></button>
+                <button id="action-strikethrough" class="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Strikethrough"><i data-lucide="strikethrough" class="w-4 h-4"></i></button>
+                <div class="w-px h-4 bg-slate-600 mx-1"></div>
+                <button id="action-align-left" class="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Align Left"><i data-lucide="align-left" class="w-4 h-4"></i></button>
+                <button id="action-align-center" class="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Align Center"><i data-lucide="align-center" class="w-4 h-4"></i></button>
+                <button id="action-align-right" class="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Align Right"><i data-lucide="align-right" class="w-4 h-4"></i></button>
+            </div>
+
+            <!-- Style -->
+            <div class="flex items-center gap-2 border-r border-slate-600 pr-4">
+                <div id="group-bg-color" class="flex flex-col">
+                    <label class="text-[9px] text-slate-400">BG</label>
+                    <input id="prop-color" type="color" class="w-8 h-6 bg-transparent border-none cursor-pointer" title="Background Color">
+                </div>
+                 <div id="group-text-color" class="flex flex-col">
+                    <label class="text-[9px] text-slate-400">Text</label>
+                    <input id="prop-text-color" type="color" class="w-8 h-6 bg-transparent border-none cursor-pointer" title="Text Color">
+                </div>
+            </div>
+
+             <!-- Grouping -->
+             <div class="flex items-center gap-1 border-r border-slate-600 pr-4">
+                 <button id="action-group" class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white hidden" title="Group Selected"><i data-lucide="group"></i></button>
+                 <button id="action-ungroup" class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white hidden" title="Ungroup Selected"><i data-lucide="ungroup"></i></button>
+                 <button id="action-lock" class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Lock/Unlock Element"><i data-lucide="lock" class="w-4 h-4"></i></button>
+             </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-1">
+                <button id="action-front" class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Bring to Front"><i data-lucide="layers"></i></button>
+                <button id="action-back" class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white" title="Send to Back"><i data-lucide="layers" class="rotate-180"></i></button>
+                <button id="action-delete" class="p-2 hover:bg-red-900/50 rounded text-red-400 hover:text-red-200" title="Delete"><i data-lucide="trash-2"></i></button>
+                <div class="w-px h-6 bg-slate-600 mx-1"></div>
+                 <button id="action-more" class="p-2 hover:bg-slate-700 rounded text-slate-300 hover:text-white relative" title="Advanced Settings">
+                     <i data-lucide="more-horizontal"></i>
+                 </button>
+            </div>
+            
+            <!-- Advanced Settings Dropdown Panel -->
+            <div id="advanced-panel" class="hidden absolute top-full right-0 mt-2 w-64 glass-panel rounded-xl p-4 flex flex-col gap-3">
+                
+                <!-- Content Editor -->
+                <div class="flex flex-col gap-1">
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Edit Content</label>
+                    <textarea id="prop-content" class="w-full h-20 bg-slate-900 border border-slate-600 rounded p-2 text-xs focus:outline-none focus:border-blue-500 resize-none" placeholder="Element content..."></textarea>
+                    <div class="flex flex-col"><label class="text-[9px] text-slate-400">Width</label><input id="prop-w" type="number" class="w-full bg-slate-900 border border-slate-600 rounded text-xs px-1" title="Width"></div>
+                    <div class="flex flex-col"><label class="text-[9px] text-slate-400">Height</label><input id="prop-h" type="number" class="w-full bg-slate-900 border border-slate-600 rounded text-xs px-1" title="Height"></div>
+                    <div class="flex flex-col"><label class="text-[9px] text-slate-400">Rotation</label><input id="prop-rotation" type="number" class="w-full bg-slate-900 border border-slate-600 rounded text-xs px-1" title="Rotation (degrees)"></div>
+                </div>
+                
+                <!-- Opacity -->
+                <div class="flex flex-col gap-1">
+                    <div class="flex justify-between">
+                         <label class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Opacity</label>
+                         <span id="prop-opacity-val" class="text-[10px] text-slate-300">100%</span>
+                    </div>
+                    <input id="prop-opacity" type="range" min="0" max="1" step="0.1" class="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <!-- Border Controls -->
+                <div id="group-border" class="flex flex-col gap-2 pt-2 border-t border-slate-700">
+                    <label class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Border</label>
+                    <div class="flex items-center gap-2">
+                        <div class="flex flex-col flex-1">
+                             <label class="text-[9px] text-slate-500">Width (px)</label>
+                             <input id="prop-border-width" type="number" min="0" class="w-full bg-slate-900 border border-slate-600 rounded text-xs px-2 py-1">
+                        </div>
+                         <div class="flex flex-col">
+                             <label class="text-[9px] text-slate-500">Color</label>
+                             <input id="prop-border-color" type="color" class="w-8 h-6 bg-transparent border-none cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Code Modal -->
+        <div id="code-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div class="bg-slate-800 rounded-xl w-full max-w-4xl h-3/4 flex flex-col border border-slate-700 shadow-2xl animate-fade-in">
+                <div class="flex justify-between items-center p-4 border-b border-slate-700">
+                    <h3 class="text-xl font-bold text-white">Generated Source Code</h3>
+                    <div class="flex gap-2">
+                        <button id="btn-copy-code" onclick="Editor.copyCode()" class="flex items-center px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-white text-sm transition-colors">
+                            <i data-lucide="copy" class="w-4 h-4 mr-2"></i> Copy
+                        </button>
+                        <button onclick="document.getElementById('code-modal').classList.add('hidden')" class="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 p-0 overflow-hidden relative">
+                    <textarea id="code-preview-area" class="w-full h-full bg-[#1e1e1e] text-slate-300 p-4 font-mono text-sm resize-none focus:outline-none" readonly spellcheck="false"></textarea>
+                </div>
+            </div>
+        </div>
+    <script>
+        // Constants & Config
+        const STORAGE_KEY = 'design2code_projects';
+        
+        // Canvas Config - Desktop Preset
+        const PAGE_WIDTH = 80;
+        const PAGE_HEIGHT = 70;
+        const GRID_SIZE = 20;
+
+        const DEFAULT_STYLES = {
+            box: { backgroundColor: '#34495e', borderRadius: 0, opacity: 1, zIndex: 1, rotation: 0, borderColor: 'transparent', borderWidth: 0, locked: false },
+            text: { color: '#2c3e50', fontSize: 16, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, opacity: 1, fontWeight: 'normal', fontStyle: 'normal', textDecoration: 'none', locked: false },
+            h1: { color: '#2c3e50', fontSize: 48, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, fontWeight: 'bold', fontStyle: 'normal', textDecoration: 'none', opacity: 1, locked: false },
+            h2: { color: '#2c3e50', fontSize: 36, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, fontWeight: 'bold', fontStyle: 'normal', textDecoration: 'none', opacity: 1, locked: false },
+            h3: { color: '#2c3e50', fontSize: 24, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, fontWeight: 'bold', fontStyle: 'normal', textDecoration: 'none', opacity: 1, locked: false },
+            h4: { color: '#2c3e50', fontSize: 20, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, fontWeight: 'bold', fontStyle: 'normal', textDecoration: 'none', opacity: 1, locked: false },
+            h5: { color: '#2c3e50', fontSize: 16, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, fontWeight: 'bold', fontStyle: 'normal', textDecoration: 'none', opacity: 1, locked: false },
+            h6: { color: '#2c3e50', fontSize: 14, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, fontWeight: 'bold', fontStyle: 'normal', textDecoration: 'none', opacity: 1, locked: false },
+            p: { color: '#2c3e50', fontSize: 16, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, opacity: 1, fontWeight: 'normal', fontStyle: 'normal', textDecoration: 'none', locked: false },
+            strong: { color: '#2c3e50', fontSize: 16, textAlign: 'left', fontFamily: 'Josefin Sans', zIndex: 1, rotation: 0, fontWeight: 'bold', fontStyle: 'normal', textDecoration: 'none', opacity: 1, locked: false },
+            button: { backgroundColor: '#3498db', color: '#ffffff', fontSize: 16, borderRadius: 6, textAlign: 'center', zIndex: 1, rotation: 0, opacity: 1, borderColor: 'transparent', borderWidth: 0, fontWeight: 'normal', fontStyle: 'normal', textDecoration: 'none', locked: false },
+            image: { borderRadius: 0, opacity: 1, zIndex: 1, rotation: 0, locked: false },
+            video: { borderRadius: 0, opacity: 1, zIndex: 1, rotation: 0, locked: false },
+            input: { backgroundColor: '#ffffff', color: '#333333', fontSize: 16, borderRadius: 4, borderColor: '#bdc3c7', borderWidth: 1, zIndex: 1, rotation: 0, opacity: 1, locked: false },
+            circle: { backgroundColor: '#e74c3c', borderRadius: 0, opacity: 1, zIndex: 1, rotation: 0, borderColor: 'transparent', borderWidth: 0, locked: false },
+            triangle: { backgroundColor: '#f1c40f', borderRadius: 0, opacity: 1, zIndex: 1, rotation: 0, locked: false }
+        };
+
+        const DEFAULT_DIMENSIONS = {
+            box: { w: 200, h: 200 },
+            text: { w: 300, h: 40 },
+            h1: { w: 400, h: 70 },
+            h2: { w: 300, h: 50 },
+            h3: { w: 250, h: 40 },
+            h4: { w: 200, h: 35 },
+            h5: { w: 180, h: 30 },
+            h6: { w: 150, h: 25 },
+            strong: { w: 150, h: 30 },
+            p: { w: 300, h: 60 },
+            button: { w: 140, h: 50 },
+            image: { w: 300, h: 200 },
+            video: { w: 400, h: 225 },
+            input: { w: 250, h: 40 },
+            circle: { w: 100, h: 100 },
+            triangle: { w: 100, h: 100 }
+        };
+        
+        // ------------------- CORE APP -------------------
+        const App = {
+            init: () => {
+                Editor.init();
+                if(window.lucide) lucide.createIcons();
+            },
+            getProjects: () => {
+                try {
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    return stored ? JSON.parse(stored) : [];
+                } catch (e) {
+                    return [];
+                }
+            },
+            saveProjects: (projects) => {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+            },
+            updateProject: (updatedProject) => {
+                const projects = App.getProjects();
+                const index = projects.findIndex(p => p.id === updatedProject.id);
+                if (index !== -1) {
+                    updatedProject.lastModified = Date.now();
+                    projects[index] = updatedProject;
+                    App.saveProjects(projects);
+                }
+            }
+        };
+
+        // ------------------- EDITOR CONTROLLER -------------------
+        const Editor = {
+            project: null,
+            canvas: null,
+            workspace: null,
+            elementsContainer: null,
+            contextMenu: null,
+            selectionOverlay: null,
+            canvasTransform: null,
+            pageBackgrounds: null,
+            layersList: null,
+            zoom: 1,
+            pan: { x: 50, y: 50 },
+            selectedIds: new Set(),
+            isPanning: false,
+            isDragging: false,
+            isResizing: false,
+            isEditing: false,
+            snapToGrid: false,
+            dragStart: null,
+            resizeHandle: null,
+            elementStartPos: new Map(),
+            selectionStartBounds: null,
+            history: [],
+            historyIndex: -1,
+            clipboard: null, 
+            isInspecting: false,
+            saveTimeout: null,
+            
+            init: () => {
+                const projectId = 'current_project'; // Fixed ID for standalone use
+                
+                // Try loading existing
+                const projects = App.getProjects();
+                const existing = projects.find(p => p.id === projectId);
+                
+                if (existing) {
+                    Editor.project = existing;
+                } else {
+                    // Create new blank project
+                    Editor.project = {
+                        id: projectId,
+                        name: 'Untitled Project',
+                        elements: [],
+                        pageCount: 1,
+                        lastModified: Date.now()
+                    };
+                    App.saveProjects([Editor.project]); // Save immediately
+                }
+
+                // FIX: Corrected ID selection
+                Editor.canvas = document.getElementById('workspace'); 
+                Editor.workspace = document.getElementById('workspace');
+                Editor.canvasTransform = document.getElementById('canvas-content');
+                Editor.elementsContainer = document.getElementById('canvas-elements');
+                Editor.pageBackgrounds = document.getElementById('page-backgrounds');
+                Editor.contextMenu = document.getElementById('context-menu');
+                Editor.selectionOverlay = document.getElementById('selection-overlay');
+                Editor.layersList = document.getElementById('layers-list');
+
+                Editor.zoom = 0.8;
+                Editor.pan = { x: 100, y: 100 };
+                Editor.selectedIds.clear();
+                Editor.isEditing = false;
+                Editor.snapToGrid = false;
+                Editor.isInspecting = false;
+                
+                document.getElementById('btn-grid').classList.remove('bg-blue-600', 'text-white');
+                Editor.switchSidebarTab('elements');
+                
+                Editor.history = [];
+                Editor.historyIndex = -1;
+                Editor.addToHistory();
+
+                document.getElementById('editor-project-title').textContent = Editor.project.name;
+                
+                Editor.renderCanvas();
+                Editor.attachListeners();
+                Editor.updateHistoryButtons();
+                if(window.lucide) lucide.createIcons();
+            },
+
+            switchSidebarTab: (tab) => {
+                const elementsPanel = document.getElementById('panel-elements');
+                const inspectPanel = document.getElementById('panel-inspect');
+                const btnEl = document.getElementById('tab-btn-elements');
+                const btnIn = document.getElementById('tab-btn-inspect');
+
+                if (tab === 'elements') {
+                    elementsPanel.classList.remove('hidden');
+                    inspectPanel.classList.add('hidden');
+                    btnEl.classList.add('border-blue-500', 'text-blue-400');
+                    btnEl.classList.remove('text-slate-400');
+                    btnIn.classList.remove('border-blue-500', 'text-blue-400');
+                    btnIn.classList.add('text-slate-400');
+                    if(Editor.isInspecting) Editor.toggleInspector();
+                } else {
+                    elementsPanel.classList.add('hidden');
+                    inspectPanel.classList.remove('hidden');
+                    btnIn.classList.add('border-blue-500', 'text-blue-400');
+                    btnIn.classList.remove('text-slate-400');
+                    btnEl.classList.remove('border-blue-500', 'text-blue-400');
+                    btnEl.classList.add('text-slate-400');
+                    Editor.renderLayers();
+                }
+            },
+
+            toggleInspector: () => {
+                Editor.isInspecting = !Editor.isInspecting;
+                const btn = document.getElementById('btn-inspector-mode');
+                if (Editor.isInspecting) {
+                    btn.classList.add('bg-blue-600');
+                    btn.classList.remove('bg-slate-700');
+                    Editor.workspace.classList.add('inspector-active');
+                } else {
+                    btn.classList.remove('bg-blue-600');
+                    btn.classList.add('bg-slate-700');
+                    Editor.workspace.classList.remove('inspector-active');
+                    document.querySelectorAll('.inspector-hover').forEach(el => el.classList.remove('inspector-hover'));
+                }
+            },
+            
+            copyId: () => {
+                const idText = document.getElementById('inspector-selected-id').textContent;
+                if(idText && idText !== 'None') {
+                    navigator.clipboard.writeText(idText);
+                }
+            },
+
+            attachListeners: () => {
+                Editor.workspace.ondragover = (e) => e.preventDefault();
+                Editor.workspace.ondrop = (e) => Editor.handleDrop(e);
+
+                document.querySelectorAll('.resize-handle').forEach(handle => {
+                    handle.onmousedown = (e) => {
+                        e.stopPropagation();
+                        Editor.isResizing = true;
+                        Editor.resizeHandle = e.target.dataset.handle;
+                        Editor.dragStart = { x: e.clientX, y: e.clientY };
+                        Editor.selectionStartBounds = Editor.getSelectionBounds();
+                        
+                        Editor.selectedIds.forEach(id => {
+                            const el = Editor.project.elements.find(item => item.id === id);
+                            if(el) {
+                                Editor.elementStartPos.set(id, { 
+                                    x: el.x, y: el.y, w: el.width, h: el.height,
+                                    fontSize: el.style.fontSize, 
+                                    relX: (el.x - Editor.selectionStartBounds.x) / Editor.selectionStartBounds.w,
+                                    relY: (el.y - Editor.selectionStartBounds.y) / Editor.selectionStartBounds.h,
+                                    relW: el.width / Editor.selectionStartBounds.w,
+                                    relH: el.height / Editor.selectionStartBounds.h
+                                });
+                            }
+                        });
+                    };
+                });
+
+                Editor.workspace.onwheel = (e) => {
+                     if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        const delta = -e.deltaY * 0.001;
+                        Editor.zoom = Math.min(Math.max(0.1, Editor.zoom + delta), 5);
+                        Editor.renderCanvas();
+                    } else {
+                         Editor.pan.x -= e.deltaX;
+                         Editor.pan.y -= e.deltaY;
+                         Editor.renderCanvas();
+                    }
+                };
+
+                // Optimized Bindings with Debounce
+                const bindProp = (id, field, parser = parseInt) => {
+                    const el = document.getElementById(id);
+                    if(el) el.onchange = (e) => Editor.updateSelectedProps({ [field]: parser(e.target.value) });
+                };
+                
+                bindProp('prop-x', 'x');
+                bindProp('prop-y', 'y');
+                bindProp('prop-w', 'width');
+                bindProp('prop-h', 'height');
+                bindProp('prop-rotation', 'rotation');
+
+                // Color & Opacity inputs with Debounce to fix lag
+                const bindColorProp = (id, styleKey) => {
+                    const el = document.getElementById(id);
+                    if(el) {
+                        el.oninput = (e) => {
+                            Editor.updateSelectedStyle(styleKey, e.target.value);
+                            clearTimeout(Editor.saveTimeout);
+                            Editor.saveTimeout = setTimeout(() => Editor.saveProject(), 300);
+                        };
+                    }
+                };
+
+                bindColorProp('prop-color', 'backgroundColor');
+                bindColorProp('prop-text-color', 'color');
+                bindColorProp('prop-border-color', 'borderColor');
+
+                document.getElementById('prop-opacity').oninput = (e) => {
+                    const val = e.target.value;
+                    document.getElementById('prop-opacity-val').innerText = Math.round(val * 100) + '%';
+                    Editor.updateSelectedStyle('opacity', val);
+                    clearTimeout(Editor.saveTimeout);
+                    Editor.saveTimeout = setTimeout(() => Editor.saveProject(), 300);
+                };
+                
+                document.getElementById('prop-border-width').oninput = (e) => {
+                    Editor.updateSelectedStyle('borderWidth', parseInt(e.target.value) || 0);
+                    clearTimeout(Editor.saveTimeout);
+                    Editor.saveTimeout = setTimeout(() => Editor.saveProject(), 300);
+                };
+                
+                // Other Inputs
+                document.getElementById('action-more').onclick = () => {
+                    document.getElementById('advanced-panel').classList.toggle('hidden');
+                };
+                
+                document.getElementById('prop-content').oninput = (e) => {
+                    const val = e.target.value;
+                    Editor.selectedIds.forEach(id => {
+                        const el = Editor.project.elements.find(item => item.id === id);
+                        if(el) el.content = val;
+                    });
+                    Editor.renderCanvas();
+                };
+                document.getElementById('prop-content').onchange = () => Editor.saveProject();
+
+                document.getElementById('action-align-left').onclick = () => Editor.updateSelectedStyle('textAlign', 'left');
+                document.getElementById('action-align-center').onclick = () => Editor.updateSelectedStyle('textAlign', 'center');
+                document.getElementById('action-align-right').onclick = () => Editor.updateSelectedStyle('textAlign', 'right');
+                
+                const toggleStyle = (prop, onVal, offVal) => {
+                     Editor.selectedIds.forEach(id => {
+                        const el = Editor.project.elements.find(e => e.id === id);
+                        if(el.style[prop] === onVal) el.style[prop] = offVal;
+                        else el.style[prop] = onVal;
+                    });
+                    Editor.renderCanvas();
+                    Editor.saveProject();
+                };
+
+                document.getElementById('action-bold').onclick = () => toggleStyle('fontWeight', 'bold', 'normal');
+                document.getElementById('action-italic').onclick = () => toggleStyle('fontStyle', 'italic', 'normal');
+                document.getElementById('action-underline').onclick = () => toggleStyle('textDecoration', 'underline', 'none');
+                document.getElementById('action-strikethrough').onclick = () => toggleStyle('textDecoration', 'line-through', 'none');
+
+                document.getElementById('action-delete').onclick = () => Editor.deleteSelected();
+                document.getElementById('action-front').onclick = () => Editor.changeZIndex('front');
+                document.getElementById('action-back').onclick = () => Editor.changeZIndex('back');
+                document.getElementById('action-group').onclick = () => Editor.groupSelected();
+                document.getElementById('action-ungroup').onclick = () => Editor.ungroupSelected();
+                document.getElementById('action-lock').onclick = () => Editor.toggleLock();
+                
+                document.querySelectorAll('.draggable-tool').forEach(tool => {
+                    tool.ondragstart = (e) => {
+                        e.dataTransfer.setData('type', tool.dataset.type);
+                    };
+                });
+            },
+
+            toggleGrid: () => {
+                Editor.snapToGrid = !Editor.snapToGrid;
+                const btn = document.getElementById('btn-grid');
+                if(Editor.snapToGrid) {
+                    btn.classList.add('bg-blue-600', 'text-white');
+                    btn.classList.remove('text-slate-400');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('text-slate-400');
+                }
+            },
+            
+            snapValue: (val) => {
+                if(!Editor.snapToGrid) return val;
+                return Math.round(val / GRID_SIZE) * GRID_SIZE;
+            },
+
+            handleGlobalMouseMove: (e) => {
+                if (!Editor.dragStart) return;
+                const rawDx = e.clientX - Editor.dragStart.x;
+                const rawDy = e.clientY - Editor.dragStart.y;
+                const dx = rawDx / Editor.zoom;
+                const dy = rawDy / Editor.zoom;
+                
+                if (Editor.isPanning) {
+                    Editor.pan.x += rawDx;
+                    Editor.pan.y += rawDy;
+                    Editor.dragStart = { x: e.clientX, y: e.clientY };
+                    Editor.renderCanvas();
+                    return;
+                }
+                
+                const hasLocked = Array.from(Editor.selectedIds).some(id => {
+                     const el = Editor.project.elements.find(e => e.id === id);
+                     return el && el.style.locked;
+                });
+                if(hasLocked && (Editor.isDragging || Editor.isResizing)) return;
+
+                if (Editor.isDragging) {
+                    Editor.selectedIds.forEach(id => {
+                        const el = Editor.project.elements.find(item => item.id === id);
+                        const start = Editor.elementStartPos.get(id);
+                        if (el && start) {
+                            el.x = Editor.snapValue(start.x + dx);
+                            el.y = Editor.snapValue(start.y + dy);
+                        }
+                    });
+                    Editor.renderCanvas();
+                    return;
+                }
+                
+                if (Editor.isResizing) {
+                    const startBounds = Editor.selectionStartBounds;
+                    let newBounds = { ...startBounds };
+                    if (Editor.resizeHandle.includes('e')) newBounds.w = Math.max(10, startBounds.w + dx);
+                    if (Editor.resizeHandle.includes('w')) {
+                        const diff = Math.min(startBounds.w - 10, dx);
+                        newBounds.w = startBounds.w - diff;
+                        newBounds.x = startBounds.x + diff;
+                    }
+                    if (Editor.resizeHandle.includes('s')) newBounds.h = Math.max(10, startBounds.h + dy);
+                    if (Editor.resizeHandle.includes('n')) {
+                        const diff = Math.min(startBounds.h - 10, dy);
+                        newBounds.h = startBounds.h - diff;
+                        newBounds.y = startBounds.y + diff;
+                    }
+                    
+                    if(Editor.snapToGrid) {
+                         newBounds.x = Editor.snapValue(newBounds.x);
+                         newBounds.y = Editor.snapValue(newBounds.y);
+                         newBounds.w = Editor.snapValue(newBounds.w);
+                         newBounds.h = Editor.snapValue(newBounds.h);
+                    }
+
+                    Editor.selectedIds.forEach(id => {
+                        const el = Editor.project.elements.find(item => item.id === id);
+                        const start = Editor.elementStartPos.get(id);
+                        if (el && start) {
+                            if (Editor.selectedIds.size === 1) {
+                                el.x = newBounds.x;
+                                el.y = newBounds.y;
+                                el.width = newBounds.w;
+                                el.height = newBounds.h;
+                                
+                                const isTextType = ['text', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'p', 'button'].includes(el.type);
+                                if (isTextType && start.fontSize) {
+                                     const ratio = newBounds.h / start.h;
+                                     el.style.fontSize = Math.max(8, start.fontSize * ratio);
+                                }
+
+                            } else {
+                                el.x = newBounds.x + (start.relX * newBounds.w);
+                                el.y = newBounds.y + (start.relY * newBounds.h);
+                                el.width = start.relW * newBounds.w;
+                                el.height = start.relH * newBounds.h;
+                                
+                                const isTextType = ['text', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'p', 'button'].includes(el.type);
+                                if (isTextType && start.fontSize) {
+                                     const ratio = newBounds.h / startBounds.h; 
+                                     el.style.fontSize = Math.max(8, start.fontSize * ratio);
+                                }
+                            }
+                        }
+                    });
+                    Editor.renderCanvas();
+                }
+            },
+
+            handleGlobalMouseUp: () => {
+                if(Editor.isDragging || Editor.isResizing) {
+                     if (Editor.dragStart) {
+                         Editor.addToHistory();
+                         Editor.saveProject();
+                     }
+                }
+
+                Editor.isPanning = false;
+                Editor.isDragging = false;
+                Editor.isResizing = false;
+                Editor.dragStart = null;
+                Editor.resizeHandle = null;
+                Editor.workspace.style.cursor = 'default';
+                Editor.elementStartPos.clear();
+                Editor.selectionStartBounds = null;
+            },
+
+            handleDrop: (e) => {
+                e.preventDefault();
+                const type = e.dataTransfer.getData('type');
+                if (!type) return;
+                Editor.addToHistory();
+                const rect = Editor.workspace.getBoundingClientRect();
+                const x = (e.clientX - rect.left - Editor.pan.x) / Editor.zoom;
+                const y = (e.clientY - rect.top - Editor.pan.y) / Editor.zoom;
+
+                let content = '';
+                if (type === 'text') content = 'Double click to edit';
+                else if (type === 'h1') content = 'Heading 1';
+                else if (type === 'h2') content = 'Heading 2';
+                else if (type === 'h3') content = 'Heading 3';
+                else if (type === 'h4') content = 'Heading 4';
+                else if (type === 'h5') content = 'Heading 5';
+                else if (type === 'h6') content = 'Heading 6';
+                else if (type === 'strong') content = 'Bold Text';
+                else if (type === 'p') content = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.';
+                else if (type === 'button') content = 'Click Me';
+                else if (type === 'image') content = 'https://i.pinimg.com/736x/97/e7/67/97e767cabac5beaccd8e860ad9bb96b8.jpg';
+                else if (type === 'video') content = 'https://www.youtube.com/embed/videoid';
+                else if (type === 'input') content = '';
+
+                // FIX: Improved ID generation
+                const newEl = {
+                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                    type,
+                    x: Editor.snapToGrid ? Math.round(x/GRID_SIZE)*GRID_SIZE : x,
+                    y: Editor.snapToGrid ? Math.round(y/GRID_SIZE)*GRID_SIZE : y,
+                    width: DEFAULT_DIMENSIONS[type].w,
+                    height: DEFAULT_DIMENSIONS[type].h,
+                    content: content,
+                    style: JSON.parse(JSON.stringify(DEFAULT_STYLES[type]))
+                };
+                Editor.project.elements.push(newEl);
+                Editor.selectedIds.clear();
+                Editor.selectedIds.add(newEl.id);
+                Editor.renderCanvas();
+                Editor.saveProject();
+            },
+
+            addPage: () => {
+                Editor.addToHistory();
+                Editor.project.pageCount = (Editor.project.pageCount || 1) + 1;
+                Editor.renderCanvas();
+                Editor.saveProject();
+                Editor.pan.y -= 100;
+                Editor.renderCanvas();
+            },
+            
+            removePage: () => {
+                if (Editor.project.pageCount > 1) {
+                    Editor.addToHistory();
+                    Editor.project.pageCount--;
+                    Editor.renderCanvas();
+                    Editor.saveProject();
+                } else {
+                    alert("Cannot delete the only page.");
+                }
+            },
+
+            addToHistory: () => {
+                if (Editor.historyIndex < Editor.history.length - 1) {
+                    Editor.history = Editor.history.slice(0, Editor.historyIndex + 1);
+                }
+                const state = JSON.parse(JSON.stringify(Editor.project));
+                Editor.history.push(state);
+                Editor.historyIndex++;
+                if (Editor.history.length > 30) {
+                    Editor.history.shift();
+                    Editor.historyIndex--;
+                }
+                Editor.updateHistoryButtons();
+            },
+            
+            undo: () => {
+                if (Editor.historyIndex > 0) {
+                    Editor.historyIndex--;
+                    const previousState = JSON.parse(JSON.stringify(Editor.history[Editor.historyIndex]));
+                    Editor.project = previousState;
+                    Editor.selectedIds.clear();
+                    Editor.renderCanvas();
+                    Editor.saveProject();
+                    Editor.updateHistoryButtons();
+                }
+            },
+            
+            redo: () => {
+                if (Editor.historyIndex < Editor.history.length - 1) {
+                    Editor.historyIndex++;
+                    const nextState = JSON.parse(JSON.stringify(Editor.history[Editor.historyIndex]));
+                    Editor.project = nextState;
+                    Editor.selectedIds.clear();
+                    Editor.renderCanvas();
+                    Editor.saveProject();
+                    Editor.updateHistoryButtons();
+                }
+            },
+            
+            updateHistoryButtons: () => {
+                const btnUndo = document.getElementById('btn-undo');
+                const btnRedo = document.getElementById('btn-redo');
+                if(btnUndo) btnUndo.disabled = Editor.historyIndex <= 0;
+                if(btnRedo) btnRedo.disabled = Editor.historyIndex >= Editor.history.length - 1;
+            },
+            
+            getSelectionBounds: () => {
+                if (Editor.selectedIds.size === 0) return null;
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if (el) {
+                        minX = Math.min(minX, el.x);
+                        minY = Math.min(minY, el.y);
+                        maxX = Math.max(maxX, el.x + el.width);
+                        maxY = Math.max(maxY, el.y + el.height);
+                    }
+                });
+                
+                return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+            },
+
+            renderCanvas: () => {
+                Editor.canvasTransform.style.transform = `translate(${Editor.pan.x}px, ${Editor.pan.y}px) scale(${Editor.zoom})`;
+
+                Editor.pageBackgrounds.innerHTML = '';
+                const pages = Editor.project.pageCount || 1;
+                
+                for(let i = 0; i < pages; i++) {
+                    const page = document.createElement('div');
+                    page.className = 'page-frame bg-grid-pattern';
+                    page.style.width = `${PAGE_WIDTH}vw`;
+                    page.style.height = `${PAGE_HEIGHT}vh`;
+                    page.dataset.page = i + 1;
+                    
+                    if (i < pages - 1) {
+                         const sep = document.createElement('div');
+                         sep.className = 'page-separator';
+                         page.appendChild(sep);
+                    }
+                    
+                    Editor.pageBackgrounds.appendChild(page);
+                }
+
+                const addPageContainer = document.getElementById('add-page-container');
+                addPageContainer.style.display = 'flex';
+                addPageContainer.style.top = `${pages * PAGE_HEIGHT + 20}vh`;
+                addPageContainer.style.width = `${PAGE_WIDTH}vw`;
+
+                const overlay = Editor.selectionOverlay;
+                Editor.elementsContainer.innerHTML = '';
+                
+                const sortedElements = [...Editor.project.elements].sort((a, b) => (a.style.zIndex || 0) - (b.style.zIndex || 0));
+
+                sortedElements.forEach(el => {
+                    const node = Editor.createElementNode(el);
+                    Editor.elementsContainer.appendChild(node);
+                });
+
+                const bounds = Editor.getSelectionBounds();
+                if (bounds && Editor.selectedIds.size > 0) {
+                    overlay.style.display = 'block';
+                    overlay.style.left = `${bounds.x}px`;
+                    overlay.style.top = `${bounds.y}px`;
+                    overlay.style.width = `${bounds.w}px`;
+                    overlay.style.height = `${bounds.h}px`;
+                    
+                    const hasLocked = Array.from(Editor.selectedIds).some(id => {
+                        const el = Editor.project.elements.find(e => e.id === id);
+                        return el && el.style.locked;
+                    });
+                    
+                    const handles = overlay.querySelectorAll('.resize-handle');
+                    const lockedInd = document.getElementById('locked-indicator');
+                    
+                    if(hasLocked) {
+                        handles.forEach(h => h.style.display = 'none');
+                        lockedInd.classList.remove('hidden');
+                        overlay.style.pointerEvents = 'none'; 
+                    } else {
+                        handles.forEach(h => h.style.display = 'block');
+                        lockedInd.classList.add('hidden');
+                        overlay.style.pointerEvents = 'none'; 
+                    }
+
+                } else {
+                    overlay.style.display = 'none';
+                }
+
+                Editor.updateContextMenu();
+                if(document.getElementById('panel-inspect').classList.contains('hidden') === false) {
+                     Editor.renderLayers();
+                }
+            },
+            
+            renderLayers: () => {
+                if(!Editor.layersList) return;
+                Editor.layersList.innerHTML = '';
+                document.getElementById('layer-count').textContent = Editor.project.elements.length;
+                
+                const sorted = [...Editor.project.elements].sort((a, b) => (b.style.zIndex || 0) - (a.style.zIndex || 0));
+                
+                sorted.forEach(el => {
+                    const item = document.createElement('div');
+                    item.className = `layer-item ${Editor.selectedIds.has(el.id) ? 'active' : ''} ${el.style.locked ? 'locked' : ''}`;
+                    
+                    let icon = 'box';
+                    if(['text', 'h1', 'h2', 'h3', 'p'].includes(el.type)) icon = 'type';
+                    if(el.type === 'image') icon = 'image';
+                    if(el.type === 'button') icon = 'mouse-pointer';
+                    
+                    let name = el.type.toUpperCase();
+                    if(el.content && el.content.length < 15) name += `: ${el.content}`;
+                    
+                    const lockIcon = el.style.locked ? `<i data-lucide="lock" class="w-3 h-3 ml-auto text-slate-500"></i>` : '';
+                    
+                    item.innerHTML = `<i data-lucide="${icon}" class="w-3 h-3 mr-2"></i> <span class="truncate layer-name">${name}</span> ${lockIcon}`;
+                    item.onclick = (e) => {
+                        if(e.shiftKey) {
+                             if (Editor.selectedIds.has(el.id)) Editor.selectedIds.delete(el.id);
+                             else Editor.selectedIds.add(el.id);
+                        } else {
+                            Editor.selectedIds.clear();
+                            Editor.selectedIds.add(el.id);
+                        }
+                        Editor.renderCanvas();
+                    };
+                    Editor.layersList.appendChild(item);
+                });
+                
+                if(window.lucide) lucide.createIcons();
+            },
+
+            createElementNode: (el) => {
+                const div = document.createElement('div');
+                div.dataset.id = el.id;
+                div.style.position = 'absolute';
+                div.style.left = `${el.x}px`;
+                div.style.top = `${el.y}px`;
+                div.style.width = `${el.width}px`;
+                div.style.height = `${el.height}px`;
+                div.style.zIndex = el.style.zIndex;
+                div.style.transform = `rotate(${el.style.rotation}deg)`;
+                
+                const borderRadius = el.type === 'circle' ? '50%' : `${el.style.borderRadius}px`;
+                const clipPath = el.type === 'triangle' ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'none';
+
+                Object.assign(div.style, {
+                    backgroundColor: el.style.backgroundColor || 'transparent',
+                    color: el.style.color || 'inherit',
+                    borderRadius: borderRadius,
+                    clipPath: clipPath,
+                    border: `${el.style.borderWidth || 0}px solid ${el.style.borderColor || 'transparent'}`,
+                    fontSize: `${el.style.fontSize}px`,
+                    fontFamily: el.style.fontFamily,
+                    textAlign: el.style.textAlign,
+                    opacity: el.style.opacity,
+                    fontWeight: el.style.fontWeight || 'normal',
+                    fontStyle: el.style.fontStyle || 'normal',
+                    textDecoration: el.style.textDecoration || 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: el.style.textAlign === 'center' ? 'center' : el.style.textAlign === 'right' ? 'flex-end' : 'flex-start',
+                    overflow: 'visible'
+                });
+                
+                if (el.style.locked) {
+                    div.style.pointerEvents = 'none'; 
+                }
+
+                let innerHTML = '';
+                const isTextType = ['text', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'p', 'button'].includes(el.type);
+                if (el.type === 'image') {
+                    innerHTML = `<img src="${el.content}" class="w-full h-full object-cover pointer-events-none" />`;
+                } else if (el.type === 'video') {
+                    innerHTML = `<div class="w-full h-full bg-black flex items-center justify-center text-white pointer-events-none">Video Preview</div>`;
+                } else if (el.type === 'input') {
+                    innerHTML = `<input type="text" placeholder="${el.content}" class="w-full h-full bg-transparent border-none outline-none px-2 pointer-events-none" />`;
+                } else if (el.type === 'triangle') {
+                    div.style.clipPath = 'none';
+                    div.style.backgroundColor = 'transparent';
+                    const inner = document.createElement('div');
+                    inner.style.width = '100%';
+                    inner.style.height = '100%';
+                    inner.style.backgroundColor = el.style.backgroundColor;
+                    inner.style.clipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
+                    inner.style.position = 'absolute';
+                    inner.style.top = '0';
+                    inner.style.left = '0';
+                    inner.style.pointerEvents = 'none';
+                    div.appendChild(inner);
+                } else if (isTextType) {
+                    innerHTML = `<div class="w-full h-full pointer-events-none select-none px-2" style="white-space: pre-wrap; word-break: break-word; user-select: none; font-size:1em;">${el.content}</div>`;
+                }
+                if(innerHTML) div.innerHTML = innerHTML;
+                
+                div.onmousedown = (e) => {
+                    if(Editor.isPanning) return;
+                    if(Editor.isEditing) return;
+                    e.stopPropagation(); 
+                    
+                    if (Editor.isInspecting) {
+                        Editor.selectedIds.clear();
+                        Editor.selectedIds.add(el.id);
+                        Editor.toggleInspector(); 
+                        Editor.switchSidebarTab('inspect');
+                        Editor.renderCanvas();
+                        return;
+                    }
+
+                    if (e.shiftKey) {
+                        if (el.groupId) {
+                            const groupMembers = Editor.project.elements.filter(m => m.groupId === el.groupId);
+                            const allSelected = groupMembers.every(m => Editor.selectedIds.has(m.id));
+                            groupMembers.forEach(m => allSelected ? Editor.selectedIds.delete(m.id) : Editor.selectedIds.add(m.id));
+                        } else {
+                            if (Editor.selectedIds.has(el.id)) Editor.selectedIds.delete(el.id);
+                            else Editor.selectedIds.add(el.id);
+                        }
+                    } else {
+                        if (!Editor.selectedIds.has(el.id)) {
+                             Editor.selectedIds.clear();
+                             if (el.groupId) {
+                                 const groupMembers = Editor.project.elements.filter(m => m.groupId === el.groupId);
+                                 groupMembers.forEach(m => Editor.selectedIds.add(m.id));
+                             } else {
+                                 Editor.selectedIds.add(el.id);
+                             }
+                        }
+                    }
+                    Editor.renderCanvas();
+                    Editor.isDragging = true;
+                    Editor.dragStart = { x: e.clientX, y: e.clientY };
+                    Editor.project.elements.forEach(item => {
+                        if (Editor.selectedIds.has(item.id)) {
+                            Editor.elementStartPos.set(item.id, { x: item.x, y: item.y });
+                        }
+                    });
+                };
+
+                div.ondblclick = (e) => {
+                    e.stopPropagation();
+                    if(Editor.isInspecting) return;
+                    if(el.style.locked) return; 
+                    
+                    if(isTextType) {
+                        Editor.isEditing = true;
+                        div.contentEditable = true;
+                        div.style.cursor = 'text';
+                        div.style.userSelect = 'text';
+                        div.classList.add('outline-none');
+                        div.focus();
+                        const inner = div.firstElementChild;
+                        if(inner) {
+                            inner.classList.remove('pointer-events-none', 'select-none');
+                            inner.style.userSelect = 'text';
+                        }
+                        const range = document.createRange();
+                        range.selectNodeContents(div);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+
+                        div.onblur = () => {
+                            div.contentEditable = false;
+                            div.style.cursor = 'default';
+                            div.style.userSelect = 'none';
+                            Editor.isEditing = false;
+                            div.classList.remove('outline-none');
+                            const newContent = div.innerText;
+                            if (newContent !== el.content) {
+                                Editor.addToHistory();
+                                el.content = newContent;
+                                Editor.saveProject();
+                            }
+                            Editor.renderCanvas(); 
+                        };
+                        
+                        div.onkeydown = (k) => {
+                             k.stopPropagation(); 
+                             k.stopImmediatePropagation();
+                        }
+                    } else if (el.type === 'image' || el.type === 'video') {
+                         Editor.addToHistory();
+                         const newUrl = prompt("Enter URL:", el.content);
+                         if(newUrl) {
+                             el.content = newUrl;
+                             Editor.renderCanvas();
+                             Editor.saveProject();
+                         }
+                    }
+                };
+
+                return div;
+            },
+
+            updateContextMenu: () => {
+                // FIX: Added safety check at the start
+                if (Editor.selectedIds.size === 0) {
+                    Editor.contextMenu.classList.add('hidden');
+                    document.getElementById('advanced-panel').classList.add('hidden');
+                    if(window.lucide) lucide.createIcons();
+                    return;
+                }
+
+                // Update Inspector ID
+                if (Editor.selectedIds.size === 1) {
+                    const id = Array.from(Editor.selectedIds)[0];
+                    document.getElementById('inspector-selected-id').textContent = id;
+                } else if (Editor.selectedIds.size > 1) {
+                    document.getElementById('inspector-selected-id').textContent = "Multiple Selected";
+                } else {
+                    document.getElementById('inspector-selected-id').textContent = "None";
+                }
+
+                if (Editor.selectedIds.size > 0 && !Editor.isEditing) {
+                    Editor.contextMenu.classList.remove('hidden');
+                    
+                    const id = Array.from(Editor.selectedIds)[0];
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    
+                    // Another safety check
+                    if(!el) {
+                        Editor.selectedIds.clear();
+                        Editor.updateContextMenu();
+                        return;
+                    }
+
+                    if (Editor.selectedIds.size === 1) {
+                         document.getElementById('prop-x').value = Math.round(el.x);
+                         document.getElementById('prop-y').value = Math.round(el.y);
+                         document.getElementById('prop-w').value = Math.round(el.width);
+                         document.getElementById('prop-h').value = Math.round(el.height);
+                         document.getElementById('prop-rotation').value = el.style.rotation || 0;
+                         
+                         const showTextColor = ['text', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'p', 'button', 'input'].includes(el.type);
+                         const showBgColor = ['box', 'button', 'circle', 'triangle', 'input', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong'].includes(el.type); 
+                         const showAlign = ['text', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'p', 'button', 'input'].includes(el.type);
+
+                         document.getElementById('group-text-color').style.display = showTextColor ? 'flex' : 'none';
+                         document.getElementById('group-bg-color').style.display = showBgColor ? 'flex' : 'none';
+                         document.getElementById('group-text-format').style.display = showAlign ? 'flex' : 'none';
+                         
+                         if (showAlign) {
+                            const setBtnState = (id, isActive) => {
+                                const btn = document.getElementById(id);
+                                if (!btn) return;
+                                if(isActive) {
+                                    btn.classList.add('bg-blue-600', 'text-white');
+                                    btn.classList.remove('hover:bg-slate-700', 'text-slate-300');
+                                } else {
+                                    btn.classList.remove('bg-blue-600', 'text-white');
+                                    btn.classList.add('hover:bg-slate-700', 'text-slate-300');
+                                }
+                            };
+                            setBtnState('action-bold', el.style.fontWeight === 'bold');
+                            setBtnState('action-italic', el.style.fontStyle === 'italic');
+                            setBtnState('action-underline', el.style.textDecoration === 'underline');
+                            setBtnState('action-strikethrough', el.style.textDecoration === 'line-through');
+                            setBtnState('action-align-left', el.style.textAlign === 'left');
+                            setBtnState('action-align-center', el.style.textAlign === 'center');
+                            setBtnState('action-align-right', el.style.textAlign === 'right');
+                         }
+
+                         const lockBtn = document.getElementById('action-lock');
+                         if(lockBtn) { 
+                             const isLocked = el.style.locked;
+                             lockBtn.innerHTML = `<i data-lucide="${isLocked ? 'lock' : 'unlock'}" class="w-4 h-4"></i>`;
+                             
+                             if(isLocked) {
+                                lockBtn.classList.add('bg-red-600', 'text-white');
+                                lockBtn.classList.remove('text-slate-300', 'hover:text-white', 'hover:bg-slate-700');
+                             } else {
+                                lockBtn.classList.remove('bg-red-600', 'text-white');
+                                lockBtn.classList.add('text-slate-300', 'hover:text-white', 'hover:bg-slate-700');
+                             }
+                         }
+
+                         document.getElementById('prop-content').value = el.content;
+                         document.getElementById('prop-opacity').value = el.style.opacity !== undefined ? el.style.opacity : 1;
+                         document.getElementById('prop-opacity-val').innerText = Math.round((el.style.opacity !== undefined ? el.style.opacity : 1) * 100) + '%';
+                         
+                         const showBorder = ['box', 'button', 'input', 'circle'].includes(el.type);
+                         document.getElementById('group-border').style.display = showBorder ? 'flex' : 'none';
+                         if(showBorder) {
+                             document.getElementById('prop-border-width').value = el.style.borderWidth || 0;
+                             document.getElementById('prop-border-color').value = el.style.borderColor || '#000000';
+                         }
+                    }
+                    
+                    const grpBtn = document.getElementById('action-group');
+                    const ungrpBtn = document.getElementById('action-ungroup');
+                    
+                    if (Editor.selectedIds.size > 1) {
+                        grpBtn.classList.remove('hidden');
+                        ungrpBtn.classList.add('hidden');
+                    } else {
+                        grpBtn.classList.add('hidden');
+                        
+                        let allSameGroup = true;
+                        let commonGroupId = null;
+                        let hasGroup = false;
+                        
+                        const ids = Array.from(Editor.selectedIds);
+                        for (let i = 0; i < ids.length; i++) {
+                            const item = Editor.project.elements.find(e => e.id === ids[i]);
+                            if (i === 0) commonGroupId = item.groupId;
+                            if (item.groupId) hasGroup = true;
+                            if (item.groupId !== commonGroupId) allSameGroup = false;
+                        }
+                        
+                        if (hasGroup && allSameGroup && commonGroupId) {
+                            ungrpBtn.classList.remove('hidden');
+                            grpBtn.classList.add('hidden');
+                        } else {
+                            if (Editor.selectedIds.size > 1) {
+                                grpBtn.classList.remove('hidden');
+                                ungrpBtn.classList.add('hidden');
+                            }
+                        }
+                    }
+
+                } else {
+                    Editor.contextMenu.classList.add('hidden');
+                    document.getElementById('advanced-panel').classList.add('hidden');
+                }
+                if(window.lucide) lucide.createIcons();
+            },
+
+            groupSelected: () => {
+                if (Editor.selectedIds.size < 2) return;
+                Editor.addToHistory();
+                const newGroupId = 'g-' + Date.now();
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if(el) el.groupId = newGroupId;
+                });
+                Editor.saveProject();
+                Editor.renderCanvas();
+            },
+
+            ungroupSelected: () => {
+                Editor.addToHistory();
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if(el) delete el.groupId;
+                });
+                Editor.saveProject();
+                Editor.renderCanvas();
+            },
+            
+            toggleLock: () => {
+                Editor.addToHistory();
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if(el) el.style.locked = !el.style.locked;
+                });
+                Editor.saveProject();
+                Editor.renderCanvas();
+            },
+
+            updateSelectedProps: (props) => {
+                Editor.addToHistory();
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    Object.assign(el, props);
+                });
+                Editor.renderCanvas();
+                Editor.saveProject();
+            },
+
+            updateSelectedStyle: (key, value) => {
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if(el) el.style[key] = value;
+                });
+                Editor.renderCanvas();
+                // NOTE: Saving is handled by debounce in listeners now
+            },
+
+            deleteSelected: () => {
+                if(Editor.selectedIds.size === 0) return;
+                Editor.addToHistory();
+                Editor.project.elements = Editor.project.elements.filter(el => !Editor.selectedIds.has(el.id));
+                Editor.selectedIds.clear();
+                Editor.renderCanvas();
+                Editor.saveProject();
+            },
+
+            changeZIndex: (direction) => {
+                Editor.addToHistory();
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if(direction === 'front') el.style.zIndex = (el.style.zIndex || 0) + 1;
+                    else el.style.zIndex = Math.max(0, (el.style.zIndex || 0) - 1);
+                });
+                Editor.renderCanvas();
+                Editor.saveProject();
+            },
+            
+            copy: () => {
+                if(Editor.selectedIds.size === 0) return;
+                const toCopy = [];
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if(el) toCopy.push(JSON.parse(JSON.stringify(el)));
+                });
+                Editor.clipboard = toCopy;
+            },
+            paste: () => {
+                if(!Editor.clipboard || Editor.clipboard.length === 0) return;
+                Editor.addToHistory();
+                const newIds = new Set();
+                Editor.clipboard.forEach(item => {
+                    const newItem = JSON.parse(JSON.stringify(item));
+                    newItem.id = Date.now().toString() + Math.random().toString().substr(2, 5);
+                    newItem.x += 20;
+                    newItem.y += 20;
+                    delete newItem.groupId; 
+                    Editor.project.elements.push(newItem);
+                    newIds.add(newItem.id);
+                });
+                Editor.selectedIds = newIds;
+                Editor.renderCanvas();
+                Editor.saveProject();
+            },
+            nudge: (dx, dy) => {
+                if(Editor.selectedIds.size === 0) return;
+                Editor.selectedIds.forEach(id => {
+                    const el = Editor.project.elements.find(e => e.id === id);
+                    if(el) {
+                        el.x += dx;
+                        el.y += dy;
+                    }
+                });
+                Editor.renderCanvas();
+            },
+            saveProject: () => {
+                App.updateProject(Editor.project);
+            },
+            
+            // --- Export / Preview Logic ---
+
+            getProjectHTML: () => {
+                const styles = `
+                    @import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:ital,wght@0,100..700;1,100..700&display=swap');
+                    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&display=swap');
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { 
+                        margin: 0; 
+                        padding: 0;
+                    }
+                    .canvas-container { 
+                        width: 100vw; 
+                        height:auto; 
+                        background: white;
+                        overflow: hidden; 
+                        margin: 0 auto; 
+                    }
+                    .generated-element { 
+                        position: absolute; 
+                        display: flex; 
+                        align-items: center; 
+                        overflow: visible; 
+                        white-space: pre-wrap; 
+                        word-break: break-word;
+                    }
+                    h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote { margin: 0; padding: 0; }
+                `;
+                const sortedElements = [...Editor.project.elements].sort((a, b) => (a.style.zIndex || 0) - (b.style.zIndex || 0));
+                let elementsHTML = sortedElements.map(el => {
+                    const isText = ['text', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'p', 'button'].includes(el.type);
+                    const paddingStyle = isText ? 'padding: 0 8px;' : '';
+                    let bgStyle = `background-color: ${el.style.backgroundColor || 'transparent'};`;
+                    let clipStyle = '';
+                    let contentHTML = '';
+
+                    if (el.type === 'triangle') {
+                        bgStyle = 'background-color: transparent;';
+                        contentHTML = `<div style="width: 100%; height: 100%; background-color: ${el.style.backgroundColor}; clip-path: polygon(50% 0%, 0% 100%, 100% 100%);"></div>`;
+                    } else if (el.type === 'image') {
+                        contentHTML = `<img src="${el.content}" style="width: 100%; height: 100%; object-fit: cover; pointer-events: none; display: block;">`;
+                    } else if (el.type === 'video') {
+                         contentHTML = `<iframe src="${el.content}" style="width: 100%; height: 100%; border: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+                    } else if (el.type === 'input') {
+                        contentHTML = `<input type="text" placeholder="${el.content}" style="width: 100%; height: 100%; background: transparent; border: none; outline: none; padding: 0 8px; font-family: inherit; font-size: inherit; color: inherit;">`;
+                    } else {
+                        contentHTML = el.content;
+                    }
+
+                    const borderStyle = `border: ${el.style.borderWidth || 0}px solid ${el.style.borderColor || 'transparent'};`;
+                    const radiusStyle = `border-radius: ${el.type === 'circle' ? '50%' : (el.style.borderRadius || 0) + 'px'};`;
+
+                    const styleString = `
+                        left: ${el.x}px;
+                        top: ${el.y}px;
+                        width: ${el.width}px;
+                        height: ${el.height}px;
+                        z-index: ${el.style.zIndex};
+                        transform: rotate(${el.style.rotation || 0}deg);
+                        opacity: ${el.style.opacity !== undefined ? el.style.opacity : 1};
+                        color: ${el.style.color || 'inherit'};
+                        font-family: ${el.style.fontFamily || 'inherit'};
+                        font-size: ${el.style.fontSize}px;
+                        font-weight: ${el.style.fontWeight || 'normal'};
+                        font-style: ${el.style.fontStyle || 'normal'};
+                        text-decoration: ${el.style.textDecoration || 'none'};
+                        text-align: ${el.style.textAlign || 'left'};
+                        justify-content: ${el.style.textAlign === 'center' ? 'center' : el.style.textAlign === 'right' ? 'flex-end' : 'flex-start'};
+                        ${bgStyle}
+                        ${borderStyle}
+                        ${radiusStyle}
+                        ${paddingStyle}
+                    `.replace(/\s+/g, ' ');
+
+                    return `<div class="generated-element" style="${styleString}">${contentHTML}</div>`;
+                }).join('\n');
+                return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${Editor.project.name} - Built with Design2Code</title>
+    <style>${styles}</style>
+</head>
+<body>
+    <div class="canvas-container">
+        ${elementsHTML}
+    </div>
+</body>
+</html>`;
+            },
+            
+            downloadHTML: () => {
+                const html = Editor.getProjectHTML();
+                const blob = new Blob([html], {type: 'text/html'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${Editor.project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.html`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            },
+            
+            viewCode: () => {
+                const html = Editor.getProjectHTML();
+                const textarea = document.getElementById('code-preview-area');
+                if(textarea) textarea.value = html;
+                document.getElementById('code-modal').classList.remove('hidden');
+            },
+            
+            copyCode: () => {
+                const textarea = document.getElementById('code-preview-area');
+                if(textarea) {
+                    textarea.select();
+                    navigator.clipboard.writeText(textarea.value);
+                    
+                    const btn = document.getElementById('btn-copy-code');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 mr-2"></i> Copied!`;
+                    setTimeout(() => btn.innerHTML = originalText, 2000);
+                }
+            },
+            
+            previewHTML: () => {
+                const html = Editor.getProjectHTML();
+                const blob = new Blob([html], {type: 'text/html'});
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            }
+        };
+
+        // --- GLOBAL KEYBOARD SHORTCUTS ---
+        window.addEventListener('keydown', (e) => {
+             // Only if in editor view
+             
+             // Ignore if typing in input/textarea
+             if(['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+             if(e.target.isContentEditable) return;
+
+             // Delete
+             if(e.key === 'Delete' || e.key === 'Backspace') {
+                 Editor.deleteSelected();
+             }
+             
+             // Undo/Redo
+             if((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                 e.preventDefault();
+                 if(e.shiftKey) Editor.redo();
+                 else Editor.undo();
+             }
+             if((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                 e.preventDefault();
+                 Editor.redo();
+             }
+             
+             // Nudge
+             if(Editor.selectedIds.size > 0) {
+                 const step = e.shiftKey ? 10 : 1;
+                 if(e.key === 'ArrowUp') { e.preventDefault(); Editor.nudge(0, -step); }
+                 if(e.key === 'ArrowDown') { e.preventDefault(); Editor.nudge(0, step); }
+                 if(e.key === 'ArrowLeft') { e.preventDefault(); Editor.nudge(-step, 0); }
+                 if(e.key === 'ArrowRight') { e.preventDefault(); Editor.nudge(step, 0); }
+             }
+             
+             // Copy/Paste (ADDED)
+             if((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                 e.preventDefault();
+                 Editor.copy();
+             }
+             if((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                 e.preventDefault();
+                 Editor.paste();
+             }
+        });
+        
+        // --- GLOBAL EVENTS ---
+        // Added logic to handle panning start
+        document.getElementById('workspace').addEventListener('mousedown', (e) => {
+            if (Editor.isEditing) return;
+            if (Editor.isInspecting) return; 
+            
+            // Background click logic
+            if (e.target.closest('#canvas-transform-layer') || e.target.id === 'workspace' || e.target.id.includes('page-backgrounds') || e.target.classList.contains('page-frame')) {
+                if (!e.shiftKey) {
+                    Editor.selectedIds.clear();
+                    Editor.renderCanvas();
+                }
+                Editor.isPanning = true;
+                Editor.dragStart = { x: e.clientX, y: e.clientY };
+                Editor.workspace.style.cursor = 'grabbing';
+                document.getElementById('advanced-panel').classList.add('hidden');
+            }
+        });
+
+        window.addEventListener('mousemove', Editor.handleGlobalMouseMove);
+        window.addEventListener('mouseup', Editor.handleGlobalMouseUp);
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+             App.init();
+        });
+    </script>
+</body>
+</html>
