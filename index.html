@@ -58,13 +58,16 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
         }
 
-        /* Selection Overlay & Resize Handles */
+        /* Selection Overlay */
         #selection-overlay {
             position: absolute;
             border: 2px solid #3b82f6;
-            pointer-events: none;
             z-index: 1000;
             display: none;
+        }
+        /* Rotation Handle */
+        #selection-overlay.has-locked #rotate-handle {
+            display: none !important;
         }
 
         .resize-handle {
@@ -76,6 +79,9 @@
             border-radius: 50%;
             pointer-events: auto;
             z-index: 1001;
+        }
+        .resize-handle, #rotate-handle {
+            pointer-events: auto !important;
         }
         
         /* Corners */
@@ -367,6 +373,14 @@
                     
                     <!-- Selection Overlay -->
                     <div id="selection-overlay" class="z-20">
+                        <!-- Rotation Handle -->
+                        <div id="rotate-handle" class="absolute -top-12 left-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing" title="Rotate" style="display: none;">
+                            <div class="w-px h-4 bg-blue-500 mx-auto"></div>
+                            <div class="w-4 h-4 bg-white border-2 border-blue-500 rounded-full flex items-center justify-center shadow-lg hover:bg-blue-50 transition-colors">
+                                <i data-lucide="rotate-cw" class="w-2.5 h-2.5 text-blue-600"></i>
+                            </div>
+                        </div>
+
                         <div class="resize-handle handle-nw" data-handle="nw" title="Resize"></div>
                         <div class="resize-handle handle-n" data-handle="n" title="Resize Height"></div>
                         <div class="resize-handle handle-ne" data-handle="ne" title="Resize"></div>
@@ -375,6 +389,7 @@
                         <div class="resize-handle handle-s" data-handle="s" title="Resize Height"></div>
                         <div class="resize-handle handle-sw" data-handle="sw" title="Resize"></div>
                         <div class="resize-handle handle-w" data-handle="w" title="Resize Width"></div>
+                        
                         <!-- Locked indicator on selection -->
                         <div id="locked-indicator" class="hidden absolute -top-8 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[10px] px-2 py-1 rounded-full flex items-center shadow-lg"><i data-lucide="lock" class="w-3 h-3 mr-1"></i> Locked</div>
                     </div>
@@ -501,31 +516,12 @@
             </div>
         </div>
 
-        <!-- NEW: Iframe Preview Modal -->
-        <div id="iframe-preview-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div class="bg-slate-800 rounded-xl w-full max-w-6xl h-5/6 flex flex-col border border-slate-700 shadow-2xl animate-fade-in">
-                <div class="flex justify-between items-center p-4 border-b border-slate-700">
-                    <h3 class="text-xl font-bold text-white">Live Preview</h3>
-                    <div class="flex gap-2">
-                         <button onclick="Editor.refreshPreviewIframe()" class="flex items-center px-3 py-1.5 bg-slate-600 hover:bg-slate-500 rounded text-white text-sm transition-colors">
-                            <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i> Refresh
-                        </button>
-                        <button onclick="document.getElementById('iframe-preview-modal').classList.add('hidden')" class="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors">
-                            <i data-lucide="x" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="flex-1 p-4 bg-slate-900 overflow-auto">
-                    <iframe id="preview-iframe" class="w-full h-full border-0 bg-white rounded shadow-lg" sandbox="allow-scripts allow-same-origin"></iframe>
-                </div>
-            </div>
-        </div>
     <script>
         // Constants & Config
         const STORAGE_KEY = 'design2code_projects';
         
         // Canvas Config - Desktop Preset
-        const PAGE_WIDTH = 99.8;
+        const PAGE_WIDTH = 100;
         const PAGE_HEIGHT = 100;
         const GRID_SIZE = 5;
 
@@ -612,6 +608,7 @@
             isPanning: false,
             isDragging: false,
             isResizing: false,
+            isRotating: false,
             isEditing: false,
             snapToGrid: false,
             dragStart: null,
@@ -741,10 +738,11 @@
                 }
             },
 
-            attachListeners: () => {
+                        attachListeners: () => {
                 Editor.workspace.ondragover = (e) => e.preventDefault();
                 Editor.workspace.ondrop = (e) => Editor.handleDrop(e);
 
+                // Resize Handles
                 document.querySelectorAll('.resize-handle').forEach(handle => {
                     handle.onmousedown = (e) => {
                         e.stopPropagation();
@@ -769,6 +767,7 @@
                     };
                 });
 
+                // Zoom & Pan
                 Editor.workspace.onwheel = (e) => {
                      if (e.ctrlKey || e.metaKey) {
                         e.preventDefault();
@@ -782,7 +781,7 @@
                     }
                 };
 
-                // Optimized Bindings with Debounce
+                // Property Bindings
                 const bindProp = (id, field, parser = parseInt) => {
                     const el = document.getElementById(id);
                     if(el) el.onchange = (e) => Editor.updateSelectedProps({ [field]: parser(e.target.value) });
@@ -794,7 +793,6 @@
                 bindProp('prop-h', 'height');
                 bindProp('prop-rotation', 'rotation');
 
-                // Color & Opacity inputs with Debounce to fix lag
                 const bindColorProp = (id, styleKey) => {
                     const el = document.getElementById(id);
                     if(el) {
@@ -824,7 +822,6 @@
                     Editor.saveTimeout = setTimeout(() => Editor.saveProject(), 300);
                 };
                 
-                // Other Inputs
                 document.getElementById('action-more').onclick = () => {
                     document.getElementById('advanced-panel').classList.toggle('hidden');
                 };
@@ -870,6 +867,34 @@
                         e.dataTransfer.setData('type', tool.dataset.type);
                     };
                 });
+
+                // --- FIX: Rotation Handle Logic ---
+                const rotateHandle = document.getElementById('rotate-handle');
+                if(rotateHandle) {
+                    rotateHandle.onmousedown = (e) => {
+                        e.stopPropagation();
+                        Editor.isRotating = true;
+                        
+                        const bounds = Editor.getSelectionBounds();
+                        if(!bounds) return;
+                        
+                        Editor.rotationCenter = {
+                            x: bounds.x + bounds.w / 2,
+                            y: bounds.y + bounds.h / 2
+                        };
+                        Editor.dragStart = { x: e.clientX, y: e.clientY };
+                        
+                        Editor.elementStartPos.clear();
+                        Editor.selectedIds.forEach(id => {
+                            const el = Editor.project.elements.find(item => item.id === id);
+                            if(el) {
+                                Editor.elementStartPos.set(id, { 
+                                    rotation: el.style.rotation || 0 
+                                });
+                            }
+                        });
+                    };
+                }
             },
 
             toggleGrid: () => {
@@ -978,10 +1003,37 @@
                     });
                     Editor.renderCanvas();
                 }
+                // NEW: Rotation Logic
+                else if (Editor.isRotating) {
+                    if (!Editor.rotationCenter) return;
+                    
+                    // Get current mouse position relative to canvas
+                    const rect = Editor.workspace.getBoundingClientRect();
+                    const mouseX = (e.clientX - rect.left - Editor.pan.x) / Editor.zoom;
+                    const mouseY = (e.clientY - rect.top - Editor.pan.y) / Editor.zoom;
+                    
+                    // Calculate angle from center to mouse
+                    const angleRad = Math.atan2(mouseY - Editor.rotationCenter.y, mouseX - Editor.rotationCenter.x);
+                    let angleDeg = (angleRad * 180 / Math.PI) + 90; // Adjust to 'up' is 0
+                    
+                    // Snap to 15 degrees if holding shift
+                    if (e.shiftKey) {
+                        angleDeg = Math.round(angleDeg / 15) * 15;
+                    }
+
+                    Editor.selectedIds.forEach(id => {
+                        const el = Editor.project.elements.find(item => item.id === id);
+                        const start = Editor.elementStartPos.get(id);
+                        if (el && start) {
+                            el.style.rotation = (start.rotation + angleDeg) % 360;
+                        }
+                    });
+                    Editor.renderCanvas();
+                }
             },
 
             handleGlobalMouseUp: () => {
-                if(Editor.isDragging || Editor.isResizing) {
+                if(Editor.isDragging || Editor.isResizing || Editor.isRotating) {
                      if (Editor.dragStart) {
                          Editor.addToHistory();
                          Editor.saveProject();
@@ -991,6 +1043,7 @@
                 Editor.isPanning = false;
                 Editor.isDragging = false;
                 Editor.isResizing = false;
+                Editor.isRotating = false;
                 Editor.dragStart = null;
                 Editor.resizeHandle = null;
                 Editor.workspace.style.cursor = 'default';
@@ -1121,7 +1174,7 @@
                 return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
             },
 
-            renderCanvas: () => {
+                            renderCanvas: () => {
                 Editor.canvasTransform.style.transform = `translate(${Editor.pan.x}px, ${Editor.pan.y}px) scale(${Editor.zoom})`;
 
                 Editor.pageBackgrounds.innerHTML = '';
@@ -1158,7 +1211,19 @@
                     overlay.style.top = `${bounds.y}px`;
                     overlay.style.width = `${bounds.w}px`;
                     overlay.style.height = `${bounds.h}px`;
-                    
+
+                    // Rotate overlay to match element
+                    if (Editor.selectedIds.size === 1) {
+                        const id = Array.from(Editor.selectedIds)[0];
+                        const el = Editor.project.elements.find(e => e.id === id);
+                        if(el) {
+                            overlay.style.transform = `rotate(${el.style.rotation || 0}deg)`;
+                            overlay.style.transformOrigin = 'center center';
+                        }
+                    } else {
+                        overlay.style.transform = 'none';
+                    }
+
                     const hasLocked = Array.from(Editor.selectedIds).some(id => {
                         const el = Editor.project.elements.find(e => e.id === id);
                         return el && el.style.locked;
@@ -1166,15 +1231,33 @@
                     
                     const handles = overlay.querySelectorAll('.resize-handle');
                     const lockedInd = document.getElementById('locked-indicator');
+                    const rotateHandle = document.getElementById('rotate-handle');
                     
                     if(hasLocked) {
                         handles.forEach(h => h.style.display = 'none');
                         lockedInd.classList.remove('hidden');
+                        overlay.classList.add('has-locked');
+                        
+                        // IMPORTANT: Make overlay completely unclickable when locked
                         overlay.style.pointerEvents = 'none'; 
+                        if(rotateHandle) rotateHandle.style.display = 'none';
                     } else {
                         handles.forEach(h => h.style.display = 'block');
                         lockedInd.classList.add('hidden');
+                        overlay.classList.remove('has-locked');
+                        
+                        // CRITICAL FIX: Allow clicks to pass through the overlay 
+                        // so you can click the element underneath to DRAG it.
                         overlay.style.pointerEvents = 'none'; 
+                        
+                        // Ensure handles are clickable despite overlay being 'none'
+                        handles.forEach(h => h.style.pointerEvents = 'auto');
+                        
+                        // Show Rotate Handle only if single selection
+                        if (rotateHandle) {
+                            rotateHandle.style.display = Editor.selectedIds.size === 1 ? 'block' : 'none';
+                            rotateHandle.style.pointerEvents = 'auto'; // Ensure rotate handle is clickable
+                        }
                     }
 
                 } else {
@@ -1186,7 +1269,6 @@
                      Editor.renderLayers();
                 }
             },
-            
             renderLayers: () => {
                 if(!Editor.layersList) return;
                 Editor.layersList.innerHTML = '';
@@ -1778,17 +1860,6 @@
     </div>
 </body>
 </html>`;
-            },
-            openPreviewModal: () => {
-                document.getElementById('iframe-preview-modal').classList.remove('hidden');
-                Editor.refreshPreviewIframe();
-                if(window.lucide) lucide.createIcons();
-            },
-
-            refreshPreviewIframe: () => {
-                const html = Editor.getProjectHTML();
-                const iframe = document.getElementById('preview-iframe');
-                iframe.srcdoc = html;
             },
             downloadHTML: () => {
                 const html = Editor.getProjectHTML();
