@@ -37,7 +37,8 @@ This project is currently under active development, and new features are continu
 
 there are 2 step to run:
 -First:
-   1. Open website: ryz-aka.github.io/DESIGN2CODE
+   1. Open website:
+    ryz-aka.github.io/DESIGN2CODE
 
 -Second:
    1. Clone the repository:
